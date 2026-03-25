@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>ButtBook - 全球最大抽象交友社区</title>
+    <!-- 引入 Firebase 核心库和实时数据库库 -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-database-compat.js"></script>
+    
+    <style>
+        body {
+            background-color: #000; color: #0f0;
+            font-family: "Comic Sans MS", cursive;
+            margin: 0; padding: 10px;
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><text x="10" y="50" fill="%23111" font-size="20">🍑</text></svg>');
+        }
+        h1 {
+            color: #f0f; text-align: center;
+            text-shadow: 3px 3px 0 #0ff, -3px -3px 0 #ff0;
+            animation: spin 3s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(-5deg); } 50% { transform: rotate(5deg) scale(1.1); } 100% { transform: rotate(-5deg); } }
+        .screen {
+            border: 5px dashed #f00; margin: 10px auto; padding: 20px;
+            max-width: 800px; background: rgba(0,0,0,0.8); box-shadow: 0 0 20px #0f0;
+        }
+        #main-screen { display: none; }
+        input, button {
+            background: #222; color: #ff0; border: 2px solid #0ff;
+            padding: 10px; font-size: 16px; margin: 5px; font-family: inherit;
+        }
+        button:hover { background: #f0f; color: #fff; cursor: crosshair; transform: rotate(3deg); }
+        .chat-box {
+            height: 300px; overflow-y: scroll; border: 3px solid #f0f;
+            padding: 10px; background: #111; margin-bottom: 20px;
+        }
+        .post { border-bottom: 1px dotted #0f0; margin-bottom: 5px; padding-bottom: 5px; }
+        .author { color: #ff0; font-weight: bold; }
+        .private-msg { color: #f0f; text-shadow: 0 0 5px #f00; font-weight: bold; }
+        marquee { font-size: 24px; color: #f00; background: #fff; font-weight: bold; }
+        .crazy-btn { animation: blink 0.5s infinite; }
+        @keyframes blink { 0% { background: #f00; } 50% { background: #00f; } 100% { background: #0f0; } }
+    </style>
+</head>
+<body>
+
+    <marquee behavior="alternate" scrollamount="30">🔥 欢迎来到 BUTTBOOK！交出你的灵魂、节操和密码！🔥</marquee>
+    <h1>🍑 ButtBook 🍑</h1>
+
+    <!-- 登录注册界面 -->
+    <div id="auth-screen" class="screen">
+        <h2>👉 注册 / 登录（没号系统自动建）</h2>
+        <input type="text" id="username" placeholder="输入炫酷的网名">
+        <input type="password" id="password" placeholder="密码随便填">
+        <button onclick="login()">🚀 冲进论坛</button>
+        <p id="error-msg" style="color: red; font-size: 20px; animation: blink 0.2s infinite alternate;"></p>
+    </div>
+
+    <!-- 主界面 -->
+    <div id="main-screen" class="screen">
+        <h2 style="color: #0ff;">当前登录屁股: <span id="my-name" style="color:#f0f; font-size: 1.5em;"></span></h2>
+        
+        <!-- 公共大厅 -->
+        <h3 style="background: yellow; color: black; display: inline-block; padding: 5px;">🌐 全球乱聊大厅</h3>
+        <div id="public-forum" class="chat-box"></div>
+        <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+            <input type="text" id="post-input" placeholder="在世界频道大喊大叫..." style="flex:1;">
+            <button onclick="sendPublicPost()" class="crazy-btn">发射废话</button>
+        </div>
+
+        <!-- 私信与加好友 -->
+        <h3 style="background: red; color: white; display: inline-block; padding: 5px;">💌 私密小纸条 (私信)</h3>
+        <div id="private-forum" class="chat-box"></div>
+        <div style="border: 2px solid #0ff; padding: 10px; background: #222;">
+            <input type="text" id="target-user" placeholder="要发给谁？(输入对方网名)">
+            <input type="text" id="private-input" placeholder="输入悄悄话...">
+            <button onclick="sendPrivatePost()">偷偷发送</button>
+            <button onclick="addFriend()">强行加为好友</button>
+        </div>
+    </div>
+
+    <script>
+        // 你的专属 Firebase 配置
+        const firebaseConfig = {
+            apiKey: "AIzaSyC1nVrI-0OxtIuWSPgJhyQy1wtjnzFxqyw",
+            authDomain: "buttbook-898e7.firebaseapp.com",
+            databaseURL: "https://buttbook-898e7-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "buttbook-898e7",
+            storageBucket: "buttbook-898e7.firebasestorage.app",
+            messagingSenderId: "676893745540",
+            appId: "1:676893745540:web:06626e592fad8caf7e3dd1",
+            measurementId: "G-0LKV4PLEEJ"
+        };
+
+        // 初始化 Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+        let myUsername = '';
+
+        // --- 登录/注册逻辑 ---
+        function login() {
+            const u = document.getElementById('username').value.trim();
+            const p = document.getElementById('password').value;
+            if(!u || !p) {
+                document.getElementById('error-msg').innerText = "网名和密码呢？被你吃了？";
+                return;
+            }
+
+            db.ref('users/' + u).once('value').then((snapshot) => {
+                if (snapshot.exists()) {
+                    if (snapshot.val().password === p) {
+                        enterForum(u);
+                    } else {
+                        document.getElementById('error-msg').innerText = "密码错了笨蛋！是不是想盗号？";
+                    }
+                } else {
+                    db.ref('users/' + u).set({ password: p }).then(() => {
+                        db.ref('public_posts').push({
+                            author: '🍑 宇宙广播',
+                            text: `新鲜的屁股【${u}】注册了！大家快嘲笑ta！`,
+                            time: new Date().toLocaleTimeString()
+                        });
+                        enterForum(u);
+                    });
+                }
+            });
+        }
+
+        function enterForum(username) {
+            myUsername = username;
+            document.getElementById('auth-screen').style.display = 'none';
+            document.getElementById('main-screen').style.display = 'block';
+            document.getElementById('my-name').innerText = username;
+            loadMessages();
+        }
+
+        // --- 发送公共消息 ---
+        function sendPublicPost() {
+            const input = document.getElementById('post-input');
+            if (input.value.trim() !== '') {
+                db.ref('public_posts').push({
+                    author: myUsername,
+                    text: input.value,
+                    time: new Date().toLocaleTimeString()
+                });
+                input.value = '';
+            }
+        }
+
+        // --- 发送私信 ---
+        function sendPrivatePost() {
+            const target = document.getElementById('target-user').value.trim();
+            const text = document.getElementById('private-input').value.trim();
+            if (target && text) {
+                db.ref('private_msgs/' + target).push({
+                    from: myUsername, to: target, text: text, time: new Date().toLocaleTimeString()
+                });
+                if(target !== myUsername) {
+                    db.ref('private_msgs/' + myUsername).push({
+                        from: myUsername, to: target, text: text, time: new Date().toLocaleTimeString()
+                    });
+                }
+                document.getElementById('private-input').value = '';
+                alert(`悄悄话已发射给 ${target}！`);
+            }
+        }
+
+        // --- 搞笑加好友 ---
+        function addFriend() {
+            const target = document.getElementById('target-user').value.trim();
+            if(target) {
+                db.ref('public_posts').push({
+                    author: '🤖 系统嘲讽',
+                    text: `哈哈哈哈！【${myUsername}】居然试图强行加【${target}】为好友！醒醒吧，你根本没有朋友！`,
+                    time: new Date().toLocaleTimeString()
+                });
+                alert("加好友请求已发送...但被宇宙黑洞吞噬了。");
+            }
+        }
+
+        // --- 实时监听数据库消息 ---
+        function loadMessages() {
+            db.ref('public_posts').on('child_added', (snapshot) => {
+                const post = snapshot.val();
+                const box = document.getElementById('public-forum');
+                box.innerHTML += `<div class="post"><span class="author">${post.author}</span> [${post.time}]: ${post.text}</div>`;
+                box.scrollTop = box.scrollHeight;
+            });
+
+            db.ref('private_msgs/' + myUsername).on('child_added', (snapshot) => {
+                const msg = snapshot.val();
+                const box = document.getElementById('private-forum');
+                let displayTxt = msg.from === myUsername 
+                    ? `你 对 ${msg.to} 说: ${msg.text}` 
+                    : `【私信】${msg.from} 对 你说: ${msg.text}`;
+                
+                box.innerHTML += `<div class="post private-msg">${displayTxt} [${msg.time}]</div>`;
+                box.scrollTop = box.scrollHeight;
+            });
+        }
+    </script>
+</body>
+</html>
