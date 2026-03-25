@@ -2,85 +2,267 @@
 <html lang="zh">
 <head>
     <meta charset="UTF-8">
-    <title>ButtBook - 全球最大抽象交友社区</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ButtBook - Minimalist Abstract Community</title>
     <!-- 引入 Firebase 核心库和实时数据库库 -->
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-database-compat.js"></script>
     
     <style>
+        :root {
+            --bg-color: #050505;
+            --panel-bg: #121212;
+            --border-color: #262626;
+            --text-main: #e0e0e0;
+            --text-muted: #888888;
+            --accent-color: #ff9a9e; /* 淡淡的蜜桃粉，契合 Butt 主题 */
+            --accent-hover: #ffb8bb;
+            --danger: #ff5252;
+        }
+
+        * { box-sizing: border-box; }
+
         body {
-            background-color: #000; color: #0f0;
-            font-family: "Comic Sans MS", cursive;
-            margin: 0; padding: 10px;
-            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><text x="10" y="50" fill="%23111" font-size="20">🍑</text></svg>');
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            line-height: 1.6;
         }
+
+        /* 隐藏滚动条但保留滚动功能 */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 3px; }
+
+        .container {
+            width: 100%;
+            max-width: 900px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
         h1 {
-            color: #f0f; text-align: center;
-            text-shadow: 3px 3px 0 #0ff, -3px -3px 0 #ff0;
-            animation: spin 3s linear infinite;
+            font-size: 2rem;
+            font-weight: 600;
+            letter-spacing: -0.5px;
+            margin: 0 0 10px 0;
+            color: #fff;
         }
-        @keyframes spin { 0% { transform: rotate(-5deg); } 50% { transform: rotate(5deg) scale(1.1); } 100% { transform: rotate(-5deg); } }
+
+        .subtitle {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
         .screen {
-            border: 5px dashed #f00; margin: 10px auto; padding: 20px;
-            max-width: 800px; background: rgba(0,0,0,0.8); box-shadow: 0 0 20px #0f0;
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 40px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+            transition: all 0.3s ease;
         }
+
         #main-screen { display: none; }
-        input, button {
-            background: #222; color: #ff0; border: 2px solid #0ff;
-            padding: 10px; font-size: 16px; margin: 5px; font-family: inherit;
+
+        .auth-container {
+            max-width: 400px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
         }
-        button:hover { background: #f0f; color: #fff; cursor: crosshair; transform: rotate(3deg); }
+
+        h2, h3 {
+            font-weight: 500;
+            margin-top: 0;
+        }
+
+        h2 { font-size: 1.2rem; color: #fff; margin-bottom: 20px; text-align: center; }
+        h3 { font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 15px; }
+
+        input {
+            background: var(--bg-color);
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+            padding: 14px 16px;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            transition: border-color 0.2s;
+            width: 100%;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--text-muted);
+        }
+
+        button {
+            background: var(--text-main);
+            color: var(--bg-color);
+            border: none;
+            padding: 14px 20px;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            width: 100%;
+        }
+
+        button:hover {
+            background: #fff;
+            transform: translateY(-1px);
+        }
+
+        button.secondary {
+            background: transparent;
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+        }
+
+        button.secondary:hover {
+            background: var(--border-color);
+        }
+
+        .chat-section {
+            margin-bottom: 30px;
+        }
+
         .chat-box {
-            height: 300px; overflow-y: scroll; border: 3px solid #f0f;
-            padding: 10px; background: #111; margin-bottom: 20px;
+            height: 280px;
+            overflow-y: auto;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+            background: var(--bg-color);
+            margin-bottom: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
         }
-        .post { border-bottom: 1px dotted #0f0; margin-bottom: 5px; padding-bottom: 5px; }
-        .author { color: #ff0; font-weight: bold; }
-        .private-msg { color: #f0f; text-shadow: 0 0 5px #f00; font-weight: bold; }
-        marquee { font-size: 24px; color: #f00; background: #fff; font-weight: bold; }
-        .crazy-btn { animation: blink 0.5s infinite; }
-        @keyframes blink { 0% { background: #f00; } 50% { background: #00f; } 100% { background: #0f0; } }
+
+        .post {
+            font-size: 0.95rem;
+            line-height: 1.4;
+            word-break: break-all;
+        }
+
+        .post-meta {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }
+
+        .author {
+            color: var(--accent-color);
+            font-weight: 500;
+        }
+
+        .private-msg {
+            color: #fff;
+            position: relative;
+            padding-left: 12px;
+            border-left: 2px solid var(--accent-color);
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        .input-group button {
+            width: auto;
+            white-space: nowrap;
+        }
+
+        .flex-row {
+            display: flex;
+            gap: 10px;
+        }
+
+        #error-msg {
+            color: var(--danger);
+            font-size: 0.85rem;
+            text-align: center;
+            min-height: 20px;
+            margin: 0;
+        }
+
+        .user-badge {
+            display: inline-block;
+            background: var(--border-color);
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            margin-bottom: 30px;
+        }
     </style>
 </head>
 <body>
 
-    <marquee behavior="alternate" scrollamount="30">🔥 欢迎来到 BUTTBOOK！交出你的灵魂、节操和密码！🔥</marquee>
-    <h1>🍑 ButtBook 🍑</h1>
-
-    <!-- 登录注册界面 -->
-    <div id="auth-screen" class="screen">
-        <h2>👉 注册 / 登录（没号系统自动建）</h2>
-        <input type="text" id="username" placeholder="输入炫酷的网名">
-        <input type="password" id="password" placeholder="密码随便填">
-        <button onclick="login()">🚀 冲进论坛</button>
-        <p id="error-msg" style="color: red; font-size: 20px; animation: blink 0.2s infinite alternate;"></p>
-    </div>
-
-    <!-- 主界面 -->
-    <div id="main-screen" class="screen">
-        <h2 style="color: #0ff;">当前登录屁股: <span id="my-name" style="color:#f0f; font-size: 1.5em;"></span></h2>
-        
-        <!-- 公共大厅 -->
-        <h3 style="background: yellow; color: black; display: inline-block; padding: 5px;">🌐 全球乱聊大厅</h3>
-        <div id="public-forum" class="chat-box"></div>
-        <div style="display: flex; gap: 10px; margin-bottom: 20px;">
-            <input type="text" id="post-input" placeholder="在世界频道大喊大叫..." style="flex:1;">
-            <button onclick="sendPublicPost()" class="crazy-btn">发射废话</button>
+    <div class="container">
+        <div class="header">
+            <h1>🍑 ButtBook</h1>
+            <div class="subtitle">Global Abstract Dating Community • Hand over your soul</div>
         </div>
 
-        <!-- 私信与加好友 -->
-        <h3 style="background: red; color: white; display: inline-block; padding: 5px;">💌 私密小纸条 (私信)</h3>
-        <div id="private-forum" class="chat-box"></div>
-        <div style="border: 2px solid #0ff; padding: 10px; background: #222;">
-            <input type="text" id="target-user" placeholder="要发给谁？(输入对方网名)">
-            <input type="text" id="private-input" placeholder="输入悄悄话...">
-            <button onclick="sendPrivatePost()">偷偷发送</button>
-            <button onclick="addFriend()">强行加为好友</button>
+        <!-- 登录注册界面 -->
+        <div id="auth-screen" class="screen">
+            <div class="auth-container">
+                <h2>System Authentication</h2>
+                <input type="text" id="username" placeholder="输入炫酷的网名 (Username)">
+                <input type="password" id="password" placeholder="密码随便填 (Password)">
+                <button onclick="login()">Initialize / 冲进论坛</button>
+                <p id="error-msg"></p>
+            </div>
+        </div>
+
+        <!-- 主界面 -->
+        <div id="main-screen" class="screen">
+            <div class="user-badge">
+                Current Entity: <span id="my-name" style="color: var(--accent-color); font-weight: 600;"></span>
+            </div>
+            
+            <!-- 公共大厅 -->
+            <div class="chat-section">
+                <h3>Public Channel / 全球乱聊大厅</h3>
+                <div id="public-forum" class="chat-box"></div>
+                <div class="input-group">
+                    <input type="text" id="post-input" placeholder="在世界频道大喊大叫...">
+                    <button onclick="sendPublicPost()">Broadcast</button>
+                </div>
+            </div>
+
+            <!-- 私信与加好友 -->
+            <div class="chat-section" style="margin-bottom: 0;">
+                <h3>Encrypted Channel / 私密小纸条</h3>
+                <div id="private-forum" class="chat-box" style="height: 200px;"></div>
+                <div class="flex-row" style="margin-bottom: 10px;">
+                    <input type="text" id="target-user" placeholder="Target ID (对方网名)" style="width: 30%;">
+                    <input type="text" id="private-input" placeholder="输入悄悄话..." style="flex: 1;">
+                </div>
+                <div class="flex-row">
+                    <button onclick="sendPrivatePost()">Send Whisper</button>
+                    <button class="secondary" onclick="addFriend()">Force Add Friend / 强行加好友</button>
+                </div>
+            </div>
         </div>
     </div>
 
     <script>
-        // 你的专属 Firebase 配置
+        // 你的专属 Firebase 配置保持不变
         const firebaseConfig = {
             apiKey: "AIzaSyC1nVrI-0OxtIuWSPgJhyQy1wtjnzFxqyw",
             authDomain: "buttbook-898e7.firebaseapp.com",
@@ -101,8 +283,10 @@
         function login() {
             const u = document.getElementById('username').value.trim();
             const p = document.getElementById('password').value;
+            const errorMsg = document.getElementById('error-msg');
+            
             if(!u || !p) {
-                document.getElementById('error-msg').innerText = "网名和密码呢？被你吃了？";
+                errorMsg.innerText = "Error: 网名和密码呢？被你吃了？";
                 return;
             }
 
@@ -111,7 +295,7 @@
                     if (snapshot.val().password === p) {
                         enterForum(u);
                     } else {
-                        document.getElementById('error-msg').innerText = "密码错了笨蛋！是不是想盗号？";
+                        errorMsg.innerText = "Error: 密码错了笨蛋！是不是想盗号？";
                     }
                 } else {
                     db.ref('users/' + u).set({ password: p }).then(() => {
@@ -161,7 +345,8 @@
                     });
                 }
                 document.getElementById('private-input').value = '';
-                alert(`悄悄话已发射给 ${target}！`);
+                // 使用控制台或者极简的方式代替 alert，保持优雅
+                console.log(`Whisper sent to ${target}`); 
             }
         }
 
@@ -174,16 +359,31 @@
                     text: `哈哈哈哈！【${myUsername}】居然试图强行加【${target}】为好友！醒醒吧，你根本没有朋友！`,
                     time: new Date().toLocaleTimeString()
                 });
-                alert("加好友请求已发送...但被宇宙黑洞吞噬了。");
+                alert("Request sent... but was swallowed by a black hole.");
             }
         }
+
+        // 绑定回车键发送
+        document.getElementById('post-input').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') sendPublicPost();
+        });
+        document.getElementById('private-input').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') sendPrivatePost();
+        });
+        document.getElementById('password').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') login();
+        });
 
         // --- 实时监听数据库消息 ---
         function loadMessages() {
             db.ref('public_posts').on('child_added', (snapshot) => {
                 const post = snapshot.val();
                 const box = document.getElementById('public-forum');
-                box.innerHTML += `<div class="post"><span class="author">${post.author}</span> [${post.time}]: ${post.text}</div>`;
+                box.innerHTML += `
+                    <div class="post">
+                        <div class="post-meta"><span class="author">${post.author}</span> • ${post.time}</div>
+                        <div>${post.text}</div>
+                    </div>`;
                 box.scrollTop = box.scrollHeight;
             });
 
@@ -191,10 +391,14 @@
                 const msg = snapshot.val();
                 const box = document.getElementById('private-forum');
                 let displayTxt = msg.from === myUsername 
-                    ? `你 对 ${msg.to} 说: ${msg.text}` 
-                    : `【私信】${msg.from} 对 你说: ${msg.text}`;
+                    ? `You whispered to ${msg.to}: ${msg.text}` 
+                    : `[Whisper] ${msg.from}: ${msg.text}`;
                 
-                box.innerHTML += `<div class="post private-msg">${displayTxt} [${msg.time}]</div>`;
+                box.innerHTML += `
+                    <div class="post private-msg">
+                        <div class="post-meta">${msg.time}</div>
+                        <div>${displayTxt}</div>
+                    </div>`;
                 box.scrollTop = box.scrollHeight;
             });
         }
