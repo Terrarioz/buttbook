@@ -200,14 +200,66 @@
             margin: 0;
         }
 
-        .user-badge {
-            display: inline-block;
+        .user-badge-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             background: var(--border-color);
-            padding: 4px 12px;
+            padding: 8px 16px;
             border-radius: 20px;
-            font-size: 0.85rem;
             margin-bottom: 30px;
+            font-size: 0.85rem;
         }
+
+        /* ---------------- 通知相关样式 ---------------- */
+        .notify-btn {
+            background: transparent;
+            color: var(--text-muted);
+            border: 1px solid var(--text-muted);
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            width: auto;
+        }
+        .notify-btn:hover {
+            transform: none;
+            background: rgba(255, 255, 255, 0.1);
+        }
+        .notify-btn.active {
+            background: var(--accent-color);
+            color: var(--bg-color);
+            border-color: var(--accent-color);
+        }
+
+        #toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .toast {
+            background-color: var(--panel-bg);
+            border-left: 4px solid var(--accent-color);
+            color: var(--text-main);
+            padding: 12px 20px;
+            border-radius: 6px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+            font-size: 0.9rem;
+            opacity: 0;
+            transform: translateX(50px);
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+        .toast.show {
+            opacity: 1;
+            transform: translateX(0);
+        }
+        /* ------------------------------------------- */
     </style>
 </head>
 <body>
@@ -231,8 +283,10 @@
 
         <!-- 主界面 -->
         <div id="main-screen" class="screen">
-            <div class="user-badge">
-                Current Entity: <span id="my-name" style="color: var(--accent-color); font-weight: 600;"></span>
+            <div class="user-badge-container">
+                <div>Current Entity: <span id="my-name" style="color: var(--accent-color); font-weight: 600;"></span></div>
+                <!-- 消息通知开关按钮 -->
+                <button id="notify-toggle" class="notify-btn">🔕 开启通知</button>
             </div>
             
             <!-- 公共大厅 -->
@@ -261,8 +315,11 @@
         </div>
     </div>
 
+    <!-- 弹窗容器 -->
+    <div id="toast-container"></div>
+
     <script>
-        // 你的专属 Firebase 配置保持不变
+        // 你的专属 Firebase 配置
         const firebaseConfig = {
             apiKey: "AIzaSyC1nVrI-0OxtIuWSPgJhyQy1wtjnzFxqyw",
             authDomain: "buttbook-898e7.firebaseapp.com",
@@ -278,6 +335,66 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
         let myUsername = '';
+
+        // --- 通知功能相关代码 ---
+        let notificationsEnabled = false;
+        let initialLoadDone = false; // 用于防止刷新页面加载历史消息时狂弹通知
+
+        const notifyToggleBtn = document.getElementById('notify-toggle');
+        notifyToggleBtn.addEventListener('click', () => {
+            notificationsEnabled = !notificationsEnabled;
+            if (notificationsEnabled) {
+                notifyToggleBtn.textContent = '🔔 通知已开启';
+                notifyToggleBtn.classList.add('active');
+            } else {
+                notifyToggleBtn.textContent = '🔕 开启通知';
+                notifyToggleBtn.classList.remove('active');
+            }
+        });
+
+        function playDingSound() {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            if (!AudioContext) return; 
+            const ctx = new AudioContext();
+            const oscillator = ctx.createOscillator();
+            const gainNode = ctx.createGain();
+
+            oscillator.type = 'sine'; // 清脆的正弦波
+            oscillator.frequency.setValueAtTime(880, ctx.currentTime); 
+            
+            gainNode.gain.setValueAtTime(0.1, ctx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+
+            oscillator.connect(gainNode);
+            gainNode.connect(ctx.destination);
+            oscillator.start();
+            oscillator.stop(ctx.currentTime + 0.5); 
+        }
+
+        function showPopup(message) {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            toast.textContent = message;
+            container.appendChild(toast);
+
+            // 触发动画
+            setTimeout(() => toast.classList.add('show'), 10);
+
+            // 3秒后移除
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        function triggerNotification(msg) {
+            if (notificationsEnabled && initialLoadDone) {
+                playDingSound();
+                showPopup(msg);
+            }
+        }
+        // -------------------------
 
         // --- 登录/注册逻辑 ---
         function login() {
@@ -315,6 +432,9 @@
             document.getElementById('auth-screen').style.display = 'none';
             document.getElementById('main-screen').style.display = 'block';
             document.getElementById('my-name').innerText = username;
+            
+            // 登录成功后开始加载消息，1.5秒后允许触发通知，防止历史消息轰炸
+            setTimeout(() => { initialLoadDone = true; }, 1500);
             loadMessages();
         }
 
@@ -345,7 +465,6 @@
                     });
                 }
                 document.getElementById('private-input').value = '';
-                // 使用控制台或者极简的方式代替 alert，保持优雅
                 console.log(`Whisper sent to ${target}`); 
             }
         }
@@ -376,6 +495,7 @@
 
         // --- 实时监听数据库消息 ---
         function loadMessages() {
+            // 公共频道监听
             db.ref('public_posts').on('child_added', (snapshot) => {
                 const post = snapshot.val();
                 const box = document.getElementById('public-forum');
@@ -385,8 +505,14 @@
                         <div>${post.text}</div>
                     </div>`;
                 box.scrollTop = box.scrollHeight;
+
+                // 新消息通知判断 (不是自己发的才会弹)
+                if (post.author !== myUsername && !post.author.includes('系统嘲讽')) {
+                    triggerNotification(`世界频道: ${post.author} 发送了新消息`);
+                }
             });
 
+            // 私密纸条监听
             db.ref('private_msgs/' + myUsername).on('child_added', (snapshot) => {
                 const msg = snapshot.val();
                 const box = document.getElementById('private-forum');
@@ -400,6 +526,11 @@
                         <div>${displayTxt}</div>
                     </div>`;
                 box.scrollTop = box.scrollHeight;
+
+                // 私信通知判断
+                if (msg.from !== myUsername) {
+                    triggerNotification(`收到来自 ${msg.from} 的悄悄话`);
+                }
             });
         }
     </script>
