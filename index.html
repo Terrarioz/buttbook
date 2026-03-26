@@ -344,6 +344,11 @@
         notifyToggleBtn.addEventListener('click', () => {
             notificationsEnabled = !notificationsEnabled;
             if (notificationsEnabled) {
+                // 请求浏览器系统通知权限
+                if ("Notification" in window && Notification.permission !== "granted") {
+                    Notification.requestPermission();
+                }
+                
                 notifyToggleBtn.textContent = '🔔 通知已开启';
                 notifyToggleBtn.classList.add('active');
             } else {
@@ -392,6 +397,19 @@
             if (notificationsEnabled && initialLoadDone) {
                 playDingSound();
                 showPopup(msg);
+                
+                // 如果用户在其他标签页或最小化了浏览器，触发系统级通知
+                if (document.hidden && "Notification" in window && Notification.permission === "granted") {
+                    const systemNotification = new Notification("🍑 ButtBook", {
+                        body: msg,
+                    });
+                    
+                    // 点击系统通知时切回标签页
+                    systemNotification.onclick = function() {
+                        window.focus();
+                        this.close();
+                    };
+                }
             }
         }
         // -------------------------
